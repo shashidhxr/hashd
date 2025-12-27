@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 import os
 
+from app.core.hash import sha256_file
+
 app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -32,10 +34,13 @@ def upload_file():
     file.save(path)
     print(path)
 
+    checksum = sha256_file(path)
+
     return jsonify({
         "message": "file uploaded succesfully",
         "file": file.filename,
-        "path": path
+        "path": path,
+        "checksum": checksum
     }), 200
 
 if __name__ == "__main__":
