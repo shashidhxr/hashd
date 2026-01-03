@@ -1,8 +1,17 @@
 /env0
 /data/*
 
+__pycache__/
+
 notes.md
 test.txt
 data.csv
 
 docker-compose.yml
+
+*.log
+docker/*.log
+
+alembic/README
+alembic/script.py.mako
+alembic.ini.bak
