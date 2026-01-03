@@ -3,17 +3,15 @@ import psycopg2
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "port": 5432,
-    "dbname": os.getenv("DB_NAME", "hashd"),
-    "user": os.getenv("DB_USER", "hashd"),
-    "password": os.getenv("DB_PASSWORD", "hashd"),
-}
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = 5432
+DB_NAME = os.getenv("DB_NAME", "hashd")
+DB_USER = os.getenv("DB_USER", "hashd")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "hashd")
 
 DATABASE_URL = (
-    f"postgresql+psycopg2://{DB_CONFIG.user}:{DB_CONFIG.password}"
-    f"@{DB_CONFIG.host}:5432/{DB_CONFIG.name}"
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}"
+    f"@{DB_HOST}:5432/{DB_NAME}"
 )
 
 engine = create_engine(
@@ -23,9 +21,9 @@ engine = create_engine(
 
 sessionLocal = sessionmaker(
     bind=engine,
-    autoCommit=False,
+    autocommit=False,
     autoflush=False
 )
 
-def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+# def get_connection():
+#     return psycopg2.connect(**DB_CONFIG)

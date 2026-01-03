@@ -1,9 +1,13 @@
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
-from app.core.db import get_connection
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+
 import os
 
 from app.core.hash import sha256_file
+from app.core.db import sessionLocal
+from app.models.file import File
 
 app = Flask(__name__)
 
@@ -20,14 +24,15 @@ def api_health():
 
 @app.route("/db_health")
 def db_health():
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT 1;")
-    cur.close()
-    conn.close()
-    return {
-        "db": "ok"
-    }
+    session = sessionLocal()
+
+    try:
+        session.execute(text("SELECT 1;"))
+        return {
+            "status": "ok"
+        }, 200
+    finally:
+        session.close()
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -49,12 +54,36 @@ def upload_file():
 
     checksum = sha256_file(path)
 
-    return jsonify({
-        "message": "file uploaded succesfully",
-        "file": file.filename,
-        "path": path,
-        "checksum": checksum
-    }), 200
+    session = sessionLocal()
+
+    try:
+        file_record = File(
+            checksum = checksum,
+            filename = filename,
+            size_bytes = os.path.getsize(path),
+            storage_path = path,
+        )
+        session.add(file_record)
+        session.commit()
+
+        return {
+            "id": str(file_record.id),
+            "checksum": checksum,
+            "status": "stored",
+        }, 201
+
+    except IntegrityError:
+        session.rollback()
+        existing = session.query(File).filter_by(checksum=checksum).one()
+
+        return {
+            "id": str(existing.id),
+            "checksum": checksum,
+            "status": "duplicate"
+        }, 200
+    
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     app.run(debug=True)
