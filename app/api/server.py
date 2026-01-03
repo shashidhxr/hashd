@@ -2,12 +2,15 @@ from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
+from uuid import UUID
 
 import os
 
 from app.core.hash import sha256_file
 from app.core.db import sessionLocal
 from app.models.file import File
+from app.models.job import Job
 
 app = Flask(__name__)
 
@@ -50,9 +53,10 @@ def upload_file():
     filename = secure_filename(file.filename)
     path = os.path.join(UPLOAD_DIR, filename)
     file.save(path)
-    print(path)
+    # print(path)
 
     checksum = sha256_file(path)
+    size_bytes = os.path.getsize(path)
 
     session = sessionLocal()
 
@@ -60,28 +64,96 @@ def upload_file():
         file_record = File(
             checksum = checksum,
             filename = filename,
-            size_bytes = os.path.getsize(path),
+            size_bytes = size_bytes,
             storage_path = path,
         )
         session.add(file_record)
+
+        session.flush()
+
+        job = Job(
+            file_id = file_record.id,
+            type = "VERIFY_INTEGRITY",
+            status = "PENDING",
+        )
+        
+        session.add(job)
         session.commit()
 
         return {
-            "id": str(file_record.id),
-            "checksum": checksum,
-            "status": "stored",
-        }, 201
+            "file_id": str(file_record.id),
+            "job_id": str(job.id),
+            "status": "PENDING",
+        }, 202
 
     except IntegrityError:
         session.rollback()
-        existing = session.query(File).filter_by(checksum=checksum).one()
+
+        existing_file = session.query(File).filter_by(checksum=checksum).one()
+
+        job = Job(
+            file_id=existing_file.id,
+            type="VERIFY_INTEGRITY",
+            status="PENDING",
+        )
+        session.add(job)
+        session.commit()
 
         return {
-            "id": str(existing.id),
-            "checksum": checksum,
-            "status": "duplicate"
-        }, 200
+            "file_id": str(existing_file.id),
+            "job_id": str(job.id),
+            "status": "PENDING",        # not true status
+            "message": "duplicate file"
+        }, 202
     
+    finally:
+        session.close()
+
+@app.route("/jobs")
+def get_jobs():
+    session = sessionLocal()
+
+    try:
+        jobs = session.query(Job).all()
+        return {
+            "jobs": [
+                {
+                    "id": str(job.id),
+                    "file_id": str(job.file_id),
+                    "type": job.type,
+                    "status": job.status,
+                    "error": job.error,
+                    "created_at": job.created_at.isoformat(),
+                    "updated_at": job.updated_at.isoformat(),
+                }
+                for job in jobs
+            ]
+        }, 200
+    finally:
+        session.close()
+
+@app.route("/jobs/<job_id>")
+def get_job(job_id):
+    session = sessionLocal()
+
+    # fails for wrong invalid uuid
+    job = session.query(Job).filter(Job.id == UUID(job_id)).one_or_none()
+
+    try:
+        if job is None:
+            return {
+                "error": "job not found"
+            }, 404
+        
+        return {
+            "id": str(job.id),
+            "file_id": str(job.file_id),
+            "type": job.type,
+            "status": job.status,
+            "error": job.error,
+            "created_at": job.created_at.isoformat(),
+            "updated_at": job.updated_at.isoformat(),
+        }, 200
     finally:
         session.close()
 
