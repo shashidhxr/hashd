@@ -69,7 +69,7 @@ def upload_file():
         )
         session.add(file_record)
 
-        session.flush()
+        session.flush()             # make prev change durable without commiting
 
         job = Job(
             file_id = file_record.id,
