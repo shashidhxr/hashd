@@ -22,7 +22,8 @@ engine = create_engine(
 sessionLocal = sessionmaker(
     bind=engine,
     autocommit=False,
-    autoflush=False
+    autoflush=False,
+    expire_on_commit=False
 )
 
 # def get_connection():
