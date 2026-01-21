@@ -12,6 +12,7 @@ class File(Base):
     filename = Column(String, nullable=False)
     size_bytes = Column(BigInteger, nullable=False)
     storage_path = Column(String, nullable=False)
+    schema_id = Column(String, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

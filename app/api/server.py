@@ -11,6 +11,7 @@ from app.core.hash import sha256_file
 from app.core.db import sessionLocal
 from app.models.file import File
 from app.models.job import Job
+from app.models.schema import Schema
 
 app = Flask(__name__)
 
@@ -60,12 +61,17 @@ def upload_file():
 
     session = sessionLocal()
 
+    # assumes latest schema is in use
+    # > perclient schema selection, autodetection, filespecificed schema version
+    latest_schema = session.query(Schema).filter_by(name="customer").order_by(Schema.version.desc()).first()
+
     try:
         file_record = File(
             checksum = checksum,
             filename = filename,
             size_bytes = size_bytes,
             storage_path = path,
+            schema_id = latest_schema.id
         )
         session.add(file_record)
 
@@ -106,6 +112,33 @@ def upload_file():
             "message": "duplicate file"
         }, 202
     
+    finally:
+        session.close()
+
+@app.route("/schema", methods=["POST"])
+def upload_schema():
+    data = request.json
+    name = data.get("name")
+    schema = data.get("schema")
+
+    if not name or not schema:
+        return {
+            "Error: Name and schema required"
+        }, 400
+
+    session = sessionLocal()
+    try:
+        latest = session.query(Schema).filter_by(name=name).order_by(Schema.version.desc()).first()
+        version = 1 if latest is None else latest.version + 1
+
+        s = Schema(name=name, version=version, schema_json=schema)
+        session.add(s)
+        session.commit()
+
+        return {
+            "schema_id": s.id,
+            "version": version
+        }, 201
     finally:
         session.close()
 
