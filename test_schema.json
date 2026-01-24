@@ -1,0 +1,12 @@
+{
+  "name": "customer",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "id": {"type": "string"},
+      "email": {"type": "string", "format": "email"},
+      "age": {"type": "integer"}
+    },
+    "required": ["id", "email"]
+  }
+}
